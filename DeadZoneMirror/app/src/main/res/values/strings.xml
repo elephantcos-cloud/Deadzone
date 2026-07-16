@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dead Zone Mirror</string>
+
+    <string name="accessibility_service_description">এই সার্ভিসটি ভাসমান overlay উইন্ডোতে করা টাচ, আসল স্ক্রিনের সঠিক জায়গায় পাঠানোর জন্য ব্যবহৃত হয় — যাতে স্ক্রিনের নষ্ট অংশও ব্যবহার করা যায়। এটি স্ক্রিনের কোনো কন্টেন্ট পড়ে না বা কোথাও পাঠায় না।</string>
+
+    <string name="permission_overlay_granted">Overlay Permission: দেওয়া আছে</string>
+    <string name="permission_overlay_not_granted">Overlay Permission: দেওয়া নেই</string>
+    <string name="permission_accessibility_granted">Accessibility Service: চালু আছে</string>
+    <string name="permission_accessibility_not_granted">Accessibility Service: বন্ধ আছে</string>
+
+    <string name="grant_overlay_permission">Permission দাও</string>
+    <string name="enable_accessibility">চালু করো</string>
+
+    <string name="start_mirror">Mirror শুরু করো</string>
+    <string name="stop_mirror">Mirror বন্ধ করো</string>
+
+    <string name="setup_hint">প্রথমবার Accessibility চালু না হলে: App Info থেকে ৩-ডট মেনুতে গিয়ে \"Allow restricted settings\" অন করো, তারপর আবার Accessibility থেকে চালু করো। এছাড়া battery optimization এবং autostart থেকেও অ্যাপটা বাদ (allow) দিয়ে রেখো, নাহলে overlay মাঝেমধ্যে বন্ধ হয়ে যেতে পারে।</string>
+
+    <string name="notification_running">Mirror চালু আছে — বন্ধ করতে ট্যাপ করো</string>
+
+    <string name="edit_mode_hint">Edit mode: overlay সরাতে/আকার বদলাতে টানো। Lock করতে উপরের ডানে বাটনে চাপ দাও।</string>
+</resources>
