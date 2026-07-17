@@ -209,13 +209,18 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
         }
 
+        // Deliberately no FLAG_SECURE here: on many devices it does not just
+        // blank this window's own region in the MediaProjection capture -
+        // it blanks the ENTIRE captured frame to solid black (and also
+        // blocks screenshots system-wide). The trade-off without it is a
+        // small self-referential "mirror within the mirror" artifact in the
+        // rectangle where this overlay itself sits, which is harmless.
         layoutParams = WindowManager.LayoutParams(
             width,
             height,
             windowType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
