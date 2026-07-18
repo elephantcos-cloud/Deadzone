@@ -10,8 +10,12 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.Image
@@ -67,6 +71,21 @@ class OverlayService : Service() {
     private var screenWidth = 0
     private var screenHeight = 0
     private var screenDensityDpi = 0
+
+    /** The overlay window's own current bounds in real screen coordinates,
+     *  written from the main thread whenever the overlay moves/resizes and
+     *  read from the background capture thread. Volatile + whole-object
+     *  reassignment (never mutated in place) keeps this safe to share
+     *  across threads without a lock. Used to paint over the overlay's own
+     *  region in each captured frame so the mirror never shows a picture
+     *  of itself (which would otherwise nest infinitely). */
+    @Volatile
+    private var overlaySelfRect: Rect? = null
+
+    private val selfMaskPaint = Paint().apply {
+        color = Color.rgb(50, 50, 50)
+        style = Paint.Style.FILL
+    }
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
@@ -209,12 +228,13 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
         }
 
-        // Deliberately no FLAG_SECURE here: on many devices it does not just
-        // blank this window's own region in the MediaProjection capture -
-        // it blanks the ENTIRE captured frame to solid black (and also
-        // blocks screenshots system-wide). The trade-off without it is a
-        // small self-referential "mirror within the mirror" artifact in the
-        // rectangle where this overlay itself sits, which is harmless.
+        // No FLAG_SECURE here: on many devices it does not just blank this
+        // window's own region in the MediaProjection capture - it blanks
+        // the ENTIRE captured frame to solid black (and also blocks
+        // screenshots system-wide), which is what caused the earlier
+        // all-black mirror. Instead, overlaySelfRect below is painted over
+        // manually in every captured frame, which avoids that bug AND
+        // avoids the infinite "mirror inside the mirror" recursion.
         layoutParams = WindowManager.LayoutParams(
             width,
             height,
@@ -227,6 +247,7 @@ class OverlayService : Service() {
             x = posX
             y = posY
         }
+        updateOverlaySelfRect()
 
         overlayFrameView.onForwardTouch = { event ->
             val scaleX = screenWidth.toFloat() / overlayFrameView.width.toFloat()
@@ -239,12 +260,14 @@ class OverlayService : Service() {
             layoutParams.x = (layoutParams.x + dx).coerceIn(-currentWidth / 2, screenWidth - currentWidth / 2)
             layoutParams.y = (layoutParams.y + dy).coerceIn(-currentHeight / 2, screenHeight - currentHeight / 2)
             safeUpdateViewLayout()
+            updateOverlaySelfRect()
         }
         overlayFrameView.onMoveFinished = { persistBounds() }
         overlayFrameView.onResizeRequested = { dw, dh ->
             layoutParams.width = (layoutParams.width + dw).coerceIn(minSizePx, screenWidth)
             layoutParams.height = (layoutParams.height + dh).coerceIn(minSizePx, screenHeight)
             safeUpdateViewLayout()
+            updateOverlaySelfRect()
         }
         overlayFrameView.onResizeFinished = { persistBounds() }
         overlayFrameView.onLockToggle = {
@@ -265,6 +288,21 @@ class OverlayService : Service() {
         } catch (e: Exception) {
             // View may already be detached; safe to ignore.
         }
+    }
+
+    /** Snapshots the overlay's current bounds (main thread) into a Volatile
+     *  field the background capture thread reads to mask that region out
+     *  of every frame. A fresh Rect is assigned rather than mutated in
+     *  place, so the read on the other thread is always a complete,
+     *  consistent rectangle. */
+    private fun updateOverlaySelfRect() {
+        if (!::layoutParams.isInitialized) return
+        overlaySelfRect = Rect(
+            layoutParams.x,
+            layoutParams.y,
+            layoutParams.x + layoutParams.width,
+            layoutParams.y + layoutParams.height
+        )
     }
 
     private fun persistBounds() {
@@ -335,10 +373,30 @@ class OverlayService : Service() {
         buffer.rewind()
         raw.copyPixelsFromBuffer(buffer)
 
+        // Mask while still on "raw": Bitmap.createBitmap(source, x, y, w, h)
+        // below returns an IMMUTABLE bitmap, so a Canvas cannot draw on
+        // "cropped" once it exists. Masking here paints the overlay's own
+        // region solid before the crop, and the crop carries that through.
+        maskOutOwnRegion(raw)
+
         if (rowPadding == 0) return raw
         val cropped = Bitmap.createBitmap(raw, 0, 0, image.width, image.height)
         raw.recycle()
         return cropped
+    }
+
+    /** Paints a flat rectangle over wherever the overlay itself currently
+     *  sits, so the mirror shows real screen content everywhere except a
+     *  small solid patch in its own footprint - never a picture of itself,
+     *  which would otherwise nest infinitely. */
+    private fun maskOutOwnRegion(bitmap: Bitmap) {
+        val rect = overlaySelfRect ?: return
+        val left = rect.left.toFloat().coerceIn(0f, bitmap.width.toFloat())
+        val top = rect.top.toFloat().coerceIn(0f, bitmap.height.toFloat())
+        val right = rect.right.toFloat().coerceIn(0f, bitmap.width.toFloat())
+        val bottom = rect.bottom.toFloat().coerceIn(0f, bitmap.height.toFloat())
+        if (right <= left || bottom <= top) return
+        Canvas(bitmap).drawRect(left, top, right, bottom, selfMaskPaint)
     }
 
     private fun handleForwardedTouch(event: MotionEvent, scaleX: Float, scaleY: Float) {
@@ -403,6 +461,7 @@ class OverlayService : Service() {
                 windowManager.removeView(overlayFrameView)
             } catch (e: Exception) { }
         }
+        overlaySelfRect = null
     }
 
     override fun onDestroy() {
