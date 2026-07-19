@@ -20,4 +20,7 @@
     <string name="notification_running">Mirror চালু আছে — বন্ধ করতে ট্যাপ করো</string>
 
     <string name="edit_mode_hint">Edit mode: overlay সরাতে/আকার বদলাতে টানো। Lock করতে উপরের ডানে বাটনে চাপ দাও।</string>
+
+    <string name="reset_position">Overlay অবস্থান/সাইজ রিসেট করো</string>
+    <string name="reset_position_done">রিসেট হয়েছে — পরের বার মাঝখানের ডিফল্ট জায়গায় খুলবে</string>
 </resources>

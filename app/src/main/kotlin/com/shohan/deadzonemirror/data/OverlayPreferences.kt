@@ -47,4 +47,16 @@ object OverlayPreferences {
         val height = prefs[KEY_HEIGHT] ?: return null
         return OverlayBounds(x, y, width, height)
     }
+
+    /** Wipes the saved position/size so the overlay falls back to the
+     *  centered default next time it opens - a simple recovery path if it
+     *  was ever left in an awkward spot or size. */
+    suspend fun clear(context: Context) {
+        context.overlayDataStore.edit { prefs ->
+            prefs.remove(KEY_X)
+            prefs.remove(KEY_Y)
+            prefs.remove(KEY_WIDTH)
+            prefs.remove(KEY_HEIGHT)
+        }
+    }
 }

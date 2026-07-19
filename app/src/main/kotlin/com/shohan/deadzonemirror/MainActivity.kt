@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,8 +34,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.shohan.deadzonemirror.data.OverlayPreferences
 import com.shohan.deadzonemirror.ui.theme.DeadZoneMirrorTheme
 import com.shohan.deadzonemirror.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -104,6 +108,16 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                             viewModel.setMirrorRunning(false)
+                        },
+                        onResetPosition = {
+                            lifecycleScope.launch {
+                                OverlayPreferences.clear(applicationContext)
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.reset_position_done),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
                     )
                 }
@@ -123,7 +137,8 @@ private fun MainScreen(
     onRequestOverlayPermission: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onStartMirror: () -> Unit,
-    onStopMirror: () -> Unit
+    onStopMirror: () -> Unit,
+    onResetPosition: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -181,6 +196,10 @@ private fun MainScreen(
                 text = stringResource(R.string.edit_mode_hint),
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+
+        TextButton(onClick = onResetPosition) {
+            Text(text = stringResource(R.string.reset_position))
         }
     }
 }
